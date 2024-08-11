@@ -37,26 +37,35 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(80), unique=True, nullable=False)
     phone = db.Column(db.String(15), nullable=False)
     posts = db.relationship('Post', backref='author', passive_deletes=True)
-    comments = db.relationship('Comment', backref='comment_author', passive_deletes=True)
+    comments = db.relationship('Comment', backref='commenter', passive_deletes=True)
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
     subtitle = db.Column(db.String(255), nullable=False)
     body = db.Column(db.Text, nullable=False)
-    pub_date = db.Column(db.DateTime, nullable=False,default=datetime.utcnow)
-    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
-    category = db.relationship('Category',backref=db.backref('posts', lazy=True))
-    comments = db.relationship('Comment', backref='post', passive_deletes=True)
+    pub_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False) 
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), nullable=False)
+    category = db.relationship('Category', backref=db.backref('posts', lazy=True))
+    
+    
+    def __repr__(self):
+        return '<Post %r>' % self.title
 
-def __repr__(self):
-        return '<Post %r>' % self.title 
     
 class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     body = db.Column(db.Text, nullable=False)
-    pub_date = db.Column(db.DateTime, nullable=False,default=datetime.utcnow)
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False) 
+    pub_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), nullable=False)
+    post = db.relationship('Post', backref=db.backref('post_comments', passive_deletes=True))
+    author = db.relationship('User', backref=db.backref('author_comments', lazy=True))
+    
+    def __repr__(self):
+        return '<Comment %r>' % self.body
+
 
 
 class Category(db.Model):
@@ -72,7 +81,6 @@ class PostForm(FlaskForm):
     subtitle = StringField('Subtitle', validators=[InputRequired(), Length(max=255)])
     body = TextAreaField('Body', validators=[InputRequired()])
     category = SelectField('Category', coerce=int, validators=[DataRequired()])
-    author = TextAreaField('Body', validators=[InputRequired()])
     submit = SubmitField('Create Post')
 
 class CategoryForm(FlaskForm):
@@ -120,22 +128,25 @@ def show_post(post_id):
     fetched_post = Post.query.get(post_id)
     return render_template("post.html" , post=fetched_post)
 
-@app.route('/create-comment/<post_id>', methods =['POST'])
+@app.route('/create-comment/<int:post_id>', methods=['POST'])
 @login_required
 def create_comment(post_id):
     text = request.form.get('text')
 
     if not text:
-        flash('Comment can not be empty', category='error')
+        flash('Comment cannot be empty', category='error')
     else:
-        post= Post.query.get(post_id) 
+        post = Post.query.get(post_id)
         if post:
-            comment = Comment(text=text, author=current_user.id, post_id=post_id)
+            comment = Comment(body=text, post_id=post_id, user_id=current_user.id)
             db.session.add(comment)
             db.session.commit()
+            flash('Comment added successfully!', 'success')
         else:
             flash('Post not found', category='error')
-    return redirect(url_for('home'))
+
+    return redirect(url_for('show_post', post_id=post_id))
+
 
 @app.route('/login', methods =['GET','POST'])
 def login():
@@ -177,24 +188,45 @@ def create_category():
    
     return render_template('create-category.html', form=form)
 
+# @app.route('/create-post', methods=['GET', 'POST'])
+# # @login_required
+# def create_post():
+#     form = PostForm()
+#     if request.method == "GET":
+#        return render_template('create-post.html', form=form)
+#     else:
+#         category_name = request.form["category"]
+#         category = Category(name=category_name)
+#         post = Post(
+#         title=request.form["title"],
+#         subtitle=request.form["subtitle"],
+#         body=request.form["body"],
+#         category=category,
+#         author=current_user.id)
+#         db.session.add(post)
+#         db.session.commit()
+#         flash('Post created successfully!', 'success')
+#         return redirect(url_for('get_all_posts'))
+
 @app.route('/create-post', methods=['GET', 'POST'])
-# @login_required
+@login_required
 def create_post():
     form = PostForm()
-    if request.method == "GET":
-       return render_template('create-post.html', form=form)
-    else:
-        category_name = request.form["category"]
-        category = Category(name=category_name)
+    form.category.choices = [(category.id, category.name) for category in Category.query.all()]
+    if form.validate_on_submit():
         post = Post(
-        title=request.form["title"],
-        subtitle=request.form["subtitle"],
-        body=request.form["body"],
-        category=category)
+            title=form.title.data,
+            subtitle=form.subtitle.data,
+            body=form.body.data,
+            category_id=form.category.data,
+            user_id=current_user.id
+        )
         db.session.add(post)
         db.session.commit()
         flash('Post created successfully!', 'success')
         return redirect(url_for('get_all_posts'))
+    return render_template('create-post.html', form=form, categories=Category.query.all())
+
     
 
 @app.route('/register', methods =['GET','POST'])

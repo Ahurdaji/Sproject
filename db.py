@@ -1,5 +1,5 @@
 from app import app, db
-from app import Post, Category, Comment
+from app import Post, Category, Comment, User
 
 
 with app.app_context():
@@ -17,8 +17,11 @@ with app.app_context():
     db.session.add(post1)
     db.session.commit()  # Commit to save the post to the database
 
-    comment = Comment(body="hey there")
+    # Add a user (ensure this user exists or replace with an existing user ID)
+    user = User.query.first()  # Get an existing user or create one if needed
+
+    # Add a comment associated with the post and user
+    comment = Comment(body="hey there", post_id=post1.id, user_id=user.id)
     db.session.add(comment)
     db.session.commit()
-
     print("Data inserted successfully!")

@@ -28,11 +28,16 @@
 
           <div class="col-8 form-inline">
               <label for="category" class="col-sm-2 col-form-label">Category:</label>
-              <input class="form-control mb-2 mr-sm-2" list="categories" name="category">
+              <!-- <input class="form-control mb-2 mr-sm-2" list="categories" name="category">
               <datalist id="categories">
                  <option value="Python">
                  <option value="Spam">   
-            </datalist> 
+            </datalist>  -->
+            <select class="form-control mb-2 mr-sm-2" name="category" required>
+               {% for category in categories %}
+                  <option value="{{ category.id }}">{{ category.name }}</option>
+               {% endfor %}
+            </select>
          </div>
          <input class="btn btn-primary" type="submit" value="Submit">
       </div>
