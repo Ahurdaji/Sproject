@@ -1,0 +1,23 @@
+{% extends 'blog.html' %}
+
+{% block header %}
+  <h1>{% block title %}{{post.title}}{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+
+    <h1>{{post.title}}</h1>
+    <h2>{{post.subtitle}}</h2>
+     <p>{{post.body}}</p>
+     <p>Category: {{post.category.name}}</p>
+
+     <h3>Comments:</h3>
+     {% for comment in post.comments %}
+         <p>{{ comment.body }}</p>
+     {% endfor %}
+     
+     <form class="input-group mb-3 method='Post' action="/create-comment/{{post.id}}">
+      <input type="text" id="text" name="text" class="form-control" placeholder="Comment here!" />
+      <button type="submit" class="btn btn-primary">Comment</button>
+    </form>
+{% endblock %}
